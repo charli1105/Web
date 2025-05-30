@@ -1,1 +1,614 @@
-# Web
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Simon Dice - RobotUNO</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .connection-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .connected {
+            background-color: #2ecc71;
+        }
+        
+        .disconnected {
+            background-color: #e74c3c;
+        }
+        
+        .status-panel {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .status-box {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+        
+        .status-value {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-top: 5px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #connectBtn {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        #startBtn {
+            background-color: #2ecc71;
+            color: white;
+        }
+        
+        #resetBtn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .simon-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .simon-button {
+            height: 80px;
+            font-size: 1.5em;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #buttonA {
+            background-color: #e74c3c;
+        }
+        
+        #buttonB {
+            background-color: #3498db;
+        }
+        
+        #buttonC {
+            background-color: #2ecc71;
+        }
+        
+        #buttonD {
+            background-color: #f39c12;
+        }
+        
+        .simon-button.active {
+            opacity: 0.7;
+            transform: scale(0.95);
+        }
+        
+        .log-container {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info {
+            color: #3498db;
+        }
+        
+        .error {
+            color: #e74c3c;
+        }
+        
+        .success {
+            color: #2ecc71;
+        }
+        
+        .pattern-selector {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        
+        .pattern-selector label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .pattern-selector select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitor Simon Dice - RobotUNO</h1>
+    
+    <div class="container">
+        <div class="connection-status">
+            <div class="connection-dot disconnected" id="connectionDot"></div>
+            <span id="connectionStatus">Desconectado</span>
+        </div>
+        
+        <div class="status-panel">
+            <div class="status-box">
+                <div>Nivel Actual</div>
+                <div class="status-value" id="currentLevel">1</div>
+            </div>
+            <div class="status-box">
+                <div>Tiempo Respuesta</div>
+                <div class="status-value" id="responseTime">0 ms</div>
+            </div>
+            <div class="status-box">
+                <div>Estado</div>
+                <div class="status-value" id="gameState">Inactivo</div>
+            </div>
+        </div>
+        
+        <div class="pattern-selector">
+            <label for="patternSelect">Patrón de colores:</label>
+            <select id="patternSelect">
+                <option value="1">Patrón 1 (A,B,C,D)</option>
+                <option value="2">Patrón 2 (A,C,B,D)</option>
+                <option value="3">Patrón 3 (D,C,B,A)</option>
+                <option value="4">Patrón 4 (Aleatorio)</option>
+                <option value="5">Patrón 5 (A,A,B,B,C,C,D,D)</option>
+            </select>
+        </div>
+        
+        <div class="controls">
+            <button id="connectBtn">Conectar Arduino</button>
+            <button id="startBtn" disabled>Iniciar Juego</button>
+            <button id="resetBtn" disabled>Reiniciar Juego</button>
+        </div>
+        
+        <div class="simon-buttons">
+            <button class="simon-button" id="buttonA" data-freq="220" disabled>A</button>
+            <button class="simon-button" id="buttonB" data-freq="330" disabled>B</button>
+            <button class="simon-button" id="buttonC" data-freq="440" disabled>C</button>
+            <button class="simon-button" id="buttonD" data-freq="550" disabled>D</button>
+        </div>
+        
+        <h3>Registro de Eventos:</h3>
+        <div class="log-container" id="eventLog">
+            <div class="log-entry info">Sistema iniciado. Conecte su Arduino para comenzar.</div>
+        </div>
+    </div>
+    
+    <script>
+        // Elementos del DOM
+        const elements = {
+            connectBtn: document.getElementById('connectBtn'),
+            startBtn: document.getElementById('startBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            connectionDot: document.getElementById('connectionDot'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            currentLevelDisplay: document.getElementById('currentLevel'),
+            responseTimeDisplay: document.getElementById('responseTime'),
+            gameStateDisplay: document.getElementById('gameState'),
+            eventLog: document.getElementById('eventLog'),
+            patternSelect: document.getElementById('patternSelect'),
+            buttons: {
+                A: document.getElementById('buttonA'),
+                B: document.getElementById('buttonB'),
+                C: document.getElementById('buttonC'),
+                D: document.getElementById('buttonD')
+            }
+        };
+
+        // Variables de estado
+        const state = {
+            isConnected: false,
+            isGameActive: false,
+            port: null,
+            reader: null,
+            currentLevel: 1,
+            responseTime: 0,
+            gameState: "Inactivo",
+            sequenceStartTime: 0,
+            keepReading: true,
+            audioCtx: null
+        };
+
+        // Event listeners
+        elements.connectBtn.addEventListener('click', toggleConnection);
+        elements.startBtn.addEventListener('click', startGame);
+        elements.resetBtn.addEventListener('click', resetGame);
+        
+        Object.keys(elements.buttons).forEach(key => {
+            elements.buttons[key].addEventListener('click', () => simulateButtonPress(key));
+        });
+
+        // Funciones principales
+        async function toggleConnection() {
+            state.isConnected ? await disconnectArduino() : await connectArduino();
+        }
+
+        async function startGame() {
+            if (!state.isConnected) {
+                addLogEntry("Conecte el Arduino primero.", "error");
+                return;
+            }
+            
+            // Obtener el patrón seleccionado
+            const selectedPattern = elements.patternSelect.value;
+            addLogEntry(`Iniciando juego con patrón ${selectedPattern}`, "info");
+            
+            state.isGameActive = true;
+            updateGameState("Esperando");
+            updateUI();
+            
+            // Enviar comando con el patrón seleccionado
+            await sendCommand(`START:${selectedPattern}`);
+            addLogEntry("Juego iniciado. Esperando secuencia...", "info");
+        }
+
+        async function connectArduino() {
+            try {
+                if (!('serial' in navigator)) {
+                    addLogEntry("Error: Tu navegador no soporta la Web Serial API.", "error");
+                    return;
+                }
+                
+                state.port = await navigator.serial.requestPort();
+                addLogEntry("Puerto seleccionado. Conectando...", "info");
+                
+                await state.port.open({ baudRate: 9600 });
+                addLogEntry("Puerto abierto a 9600 baudios.", "info");
+                
+                state.keepReading = true;
+                readData();
+                
+                state.isConnected = true;
+                updateUI();
+                addLogEntry("Conectado al Arduino correctamente.", "info");
+                
+                // Habilitar botón de inicio después de conectar
+                elements.startBtn.disabled = false;
+                
+            } catch (error) {
+                addLogEntry(`Error al conectar: ${error.message || error}`, "error");
+                if (state.port) {
+                    try {
+                        await state.port.close();
+                    } catch (e) {
+                        console.error("Error al cerrar el puerto:", e);
+                    }
+                    state.port = null;
+                }
+                state.isConnected = false;
+                updateUI();
+            }
+        }
+
+        async function readData() {
+            try {
+                const decoder = new TextDecoderStream();
+                const inputDone = state.port.readable.pipeTo(decoder.writable);
+                const inputStream = decoder.readable.pipeThrough(new TransformStream({
+                    transform(chunk, controller) {
+                        controller.enqueue(chunk);
+                    }
+                }));
+                
+                state.reader = inputStream.getReader();
+                
+                while (state.keepReading) {
+                    const { value, done } = await state.reader.read();
+                    if (done) {
+                        state.reader.releaseLock();
+                        break;
+                    }
+                    
+                    value && processIncomingData(value);
+                }
+            } catch (error) {
+                addLogEntry(`Error en lectura serial: ${error.message || error}`, "error");
+                disconnectArduino();
+            }
+        }
+
+        async function disconnectArduino() {
+            try {
+                state.keepReading = false;
+                
+                if (state.reader) {
+                    try {
+                        await state.reader.cancel();
+                    } catch (e) {
+                        console.error("Error al cancelar reader:", e);
+                    }
+                    state.reader = null;
+                }
+                
+                if (state.port) {
+                    try {
+                        await state.port.close();
+                        addLogEntry("Puerto serial cerrado.", "info");
+                    } catch (e) {
+                        addLogEntry(`Error al cerrar el puerto: ${e.message || e}`, "error");
+                    }
+                    state.port = null;
+                }
+                
+                state.isConnected = false;
+                state.isGameActive = false;
+                updateUI();
+                addLogEntry("Desconectado del Arduino.", "info");
+                
+            } catch (error) {
+                addLogEntry(`Error al desconectar: ${error.message || error}`, "error");
+            }
+        }
+
+        function processIncomingData(data) {
+            data.split('\n').forEach(line => {
+                if (!line.trim()) return;
+                
+                if (line.startsWith('LEVEL:')) {
+                    updateLevel(parseInt(line.split(':')[1]));
+                } 
+                else if (line.startsWith('RESPONSE_TIME:')) {
+                    updateResponseTime(parseInt(line.split(':')[1]));
+                }
+                else if (line.startsWith('STATE:')) {
+                    updateGameState(line.split(':')[1]);
+                }
+                else if (line.startsWith('SEQ:')) {
+                    if (state.isGameActive) {
+                        processSequence(line.split(':')[1]);
+                    }
+                }
+                else if (line.startsWith('USER_INPUT:')) {
+                    if (state.isGameActive) {
+                        processUserInput(line.split(':')[1]);
+                    }
+                }
+                else if (line.startsWith('ERROR')) {
+                    addLogEntry("¡Error en la secuencia! Reiniciando juego.", "error");
+                }
+                else if (line.startsWith('SUCCESS')) {
+                    addLogEntry("¡Secuencia correcta! Pasando al siguiente nivel.", "success");
+                }
+                else {
+                    addLogEntry(line, "info");
+                }
+            });
+        }
+
+        function updateLevel(level) {
+            state.currentLevel = level;
+            elements.currentLevelDisplay.textContent = level;
+        }
+
+        function updateResponseTime(time) {
+            state.responseTime = time;
+            elements.responseTimeDisplay.textContent = `${time} ms`;
+        }
+
+        function updateGameState(newState) {
+            state.gameState = newState;
+            elements.gameStateDisplay.textContent = newState;
+        }
+
+        function processSequence(sequence) {
+            addLogEntry(`Secuencia mostrada: ${sequence}`, "info");
+            highlightSequence(sequence);
+            state.sequenceStartTime = Date.now();
+            
+            // Habilitar botones para que el usuario pueda responder
+            Object.values(elements.buttons).forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        function processUserInput(input) {
+            const reactionTime = Date.now() - state.sequenceStartTime;
+            addLogEntry(`Botón presionado: ${input} (${reactionTime} ms)`, "info");
+            highlightButton(input, true);
+            
+            // Deshabilitar botones mientras se procesa la respuesta
+            Object.values(elements.buttons).forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+
+        async function sendCommand(command) {
+            if (!state.isConnected || !state.port) {
+                addLogEntry("No conectado al Arduino", "error");
+                return;
+            }
+            
+            try {
+                const writer = state.port.writable.getWriter();
+                await writer.write(new TextEncoder().encode(command + '\n'));
+                writer.releaseLock();
+                addLogEntry(`Comando enviado: ${command}`, "info");
+            } catch (error) {
+                addLogEntry(`Error al enviar comando: ${error.message || error}`, "error");
+                disconnectArduino();
+            }
+        }
+
+        function simulateButtonPress(button) {
+            if (!state.isConnected || !state.isGameActive) {
+                addLogEntry("Conecte el Arduino e inicie el juego primero.", "error");
+                return;
+            }
+            
+            highlightButton(button, true);
+            sendCommand(`BUTTON:${button}`);
+        }
+
+        function highlightButton(button, isUserInput = false) {
+            const btn = elements.buttons[button];
+            if (!btn) return;
+            
+            btn.classList.add('active');
+            const frequency = isUserInput ? 
+                parseInt(btn.dataset.freq) * 0.9 : // Frecuencia ligeramente más baja para inputs de usuario
+                parseInt(btn.dataset.freq);
+                
+            playTone(frequency, 200);
+            
+            setTimeout(() => btn.classList.remove('active'), 300);
+        }
+
+        function highlightSequence(sequence) {
+            sequence.split(',').forEach((btn, index) => {
+                btn.trim() && setTimeout(() => highlightButton(btn.trim()), index * 500);
+            });
+        }
+
+        function playTone(frequency, duration) {
+            if (!state.audioCtx) {
+                state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            const oscillator = state.audioCtx.createOscillator();
+            const gainNode = state.audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = frequency;
+            oscillator.connect(gainNode);
+            gainNode.connect(state.audioCtx.destination);
+            
+            oscillator.start();
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.00001, state.audioCtx.currentTime + duration / 1000
+            );
+            
+            setTimeout(() => oscillator.stop(), duration);
+        }
+
+        function resetGame() {
+            if (!state.isConnected) {
+                addLogEntry("Conecte el Arduino primero.", "error");
+                return;
+            }
+            
+            sendCommand('RESET');
+            state.isGameActive = false;
+            updateGameState("Inactivo");
+            updateLevel(1);
+            updateResponseTime(0);
+            
+            // Deshabilitar botones del juego
+            Object.values(elements.buttons).forEach(btn => {
+                btn.disabled = true;
+            });
+            
+            addLogEntry("Juego reiniciado. Presione 'Iniciar Juego' para comenzar.", "info");
+        }
+
+        function updateUI() {
+            // Actualizar estado de conexión
+            if (state.isConnected) {
+                elements.connectionDot.classList.replace('disconnected', 'connected');
+                elements.connectionStatus.textContent = 'Conectado';
+                elements.connectBtn.textContent = 'Desconectar';
+                elements.startBtn.disabled = false;
+            } else {
+                elements.connectionDot.classList.replace('connected', 'disconnected');
+                elements.connectionStatus.textContent = 'Desconectado';
+                elements.connectBtn.textContent = 'Conectar Arduino';
+                elements.startBtn.disabled = true;
+                elements.resetBtn.disabled = true;
+                
+                // Resetear valores de pantalla
+                elements.currentLevelDisplay.textContent = '1';
+                elements.responseTimeDisplay.textContent = '0 ms';
+                elements.gameStateDisplay.textContent = 'Inactivo';
+            }
+            
+            // Actualizar estado del juego
+            elements.resetBtn.disabled = !state.isGameActive;
+            
+            // Deshabilitar botones del juego si no está activo
+            if (!state.isGameActive) {
+                Object.values(elements.buttons).forEach(btn => {
+                    btn.disabled = true;
+                });
+            }
+        }
+
+        function addLogEntry(message, type = "info") {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            elements.eventLog.appendChild(entry);
+            elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
+        }
+
+        // Verificar compatibilidad al cargar la página
+        window.addEventListener('load', () => {
+            if (!('serial' in navigator)) {
+                addLogEntry("Advertencia: Tu navegador no soporta la Web Serial API. Usa Chrome/Edge 89+ o Opera 76+.", "error");
+                elements.connectBtn.disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
