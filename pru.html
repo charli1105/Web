@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel del Cajero - Generador API QR</title>
+    <style>
+        :root { --bg-dark: #070e0b; --card-bg: #111e19; --text-main: #ffffff; --text-muted: #648679; --accent: #4caf50; --border-color: #1c332a; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); display: flex; align-items: center; justify-content: center; padding: 20px; min-height: 100vh; }
+        .panel { width: 100%; max-width: 500px; background: var(--card-bg); border-radius: 14px; padding: 24px; border: 1px solid var(--border-color); }
+        h1 { font-size: 1.3rem; margin-bottom: 2px; }
+        .meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .grid-bebidas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .btn-bebida { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 14px; border-radius: 8px; cursor: pointer; text-align: left; font-size: 0.9rem; transition: background 0.2s; }
+        .btn-bebida.seleccionado { background: #1a3a2e; border-color: var(--accent); }
+        
+        .contenedor-cantidad { display: flex; justify-content: space-between; align-items: center; background: #0c1512; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; }
+        .controles-numero { display: flex; align-items: center; gap: 12px; }
+        .btn-control { background: #1c332a; border: none; color: white; width: 36px; height: 36px; border-radius: 6px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
+        .btn-control:active { background: var(--accent); }
+        .input-cantidad { background: transparent; border: none; color: white; width: 40px; text-align: center; font-size: 1.2rem; font-weight: bold; outline: none; }
+
+        .btn-secundario { width: 100%; background: #1c332a; color: white; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; margin-bottom: 20px; }
+        
+        .seccion-pedido { border-top: 1px solid var(--border-color); padding-top: 15px; margin-bottom: 20px; }
+        .lista-items { list-style: none; margin-bottom: 15px; }
+        .lista-items li { display: flex; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; font-size: 0.95rem; border: 1px solid rgba(255,255,255,0.05); }
+        .lista-items .vacio { color: var(--text-muted); text-align: center; border: none; background: transparent; display: block; padding: 10px 0; }
+
+        .btn-generar { width: 100%; background: var(--accent); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); align-items:center; justify-content:center; flex-direction:column; z-index: 10; }
+        
+        /* Caja contenedora blanca obligatoria para el contraste del QR */
+        .qr-box { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
+        .qr-box img { width: 150px; height: 150px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <h1>Nuevo pedido</h1>
+        <p class="meta">Selecciona una bebida</p>
+        
+        <div class="grid-bebidas">
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé chocolate')">🍫 Frappé chocolate</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé vainilla')">🍦 Frappé vainilla</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé oreo')">🖤 Frappé oreo</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé cajeta')">🍮 Frappé cajeta</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé matcha')">🍵 Frappé matcha</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé fresa')">🍓 Frappé fresa</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé moka')">☕ Frappé moka</button>
+            <button class="btn-bebida" onclick="elegir(this, 'Frappé mango')">🥭 Frappé mango</button>
+        </div>
+
+        <div class="contenedor-cantidad">
+            <span style="font-size: 0.95rem; color: var(--text-main);">Unidades de esta bebida:</span>
+            <div class="controles-numero">
+                <button class="btn-control" onclick="cambiarCantidad(-1)">-</button>
+                <input type="number" id="cantidad-unidades" class="input-cantidad" value="1" min="1" readonly>
+                <button class="btn-control" onclick="cambiarCantidad(1)">+</button>
+            </div>
+        </div>
+
+        <button class="btn-secundario" onclick="agregarAlPedido()">➕ Agregar al pedido</button>
+
+        <div class="seccion-pedido">
+            <p class="meta">Pedido Actual</p>
+            <ul class="lista-items" id="lista-pedido">
+                <li class="vacio">Sin bebidas agregadas</li>
+            </ul>
+        </div>
+
+        <button class="btn-generar" onclick="mostrarQR()">⬇️ Generar QR del pedido</button>
+    </div>
+
+    <div class="modal" id="pantalla-qr">
+        <div class="qr-box">
+            <!-- La imagen llama directamente al comando API solicitado con dimensiones 150x150 -->
+            <img id="img-qr-api" src="" alt="Código QR de la API">
+        </div>
+        <p style="font-weight: bold; margin-bottom: 20px; text-align: center; padding: 0 20px;">Muestra este código al cliente para que lo escanee</p>
+        <button class="btn-generar" style="background:#cc3333; max-width:200px;" onclick="cerrarQR()">Finalizar / Limpiar Todo</button>
+    </div>
+
+    <script>
+        let productoElegido = "";
+        let pedidoActual = [];
+
+        function elegir(boton, nombre) {
+            document.querySelectorAll('.btn-bebida').forEach(b => b.classList.remove('seleccionado'));
+            boton.classList.add('seleccionado');
+            productoElegido = nombre;
+        }
+
+        function cambiarCantidad(valor) {
+            const input = document.getElementById('cantidad-unidades');
+            let actual = parseInt(input.value) + valor;
+            if (actual < 1) actual = 1;
+            input.value = actual;
+        }
+
+        function agregarAlPedido() {
+            if (!productoElegido) {
+                alert("Por favor, selecciona primero una bebida.");
+                return;
+            }
+
+            const cantidad = parseInt(document.getElementById('cantidad-unidades').value);
+            const productoExistente = pedidoActual.find(item => item.nombre === productoElegido);
+            
+            if (productoExistente) {
+                productoExistente.cantidad += cantidad;
+            } else {
+                pedidoActual.push({ nombre: productoElegido, candy: cantidad, cantidad: cantidad });
+            }
+
+            productoElegido = "";
+            document.getElementById('cantidad-unidades').value = "1";
+            document.querySelectorAll('.btn-bebida').forEach(b => b.classList.remove('seleccionado'));
+
+            actualizarInterfazPedido();
+        }
+
+        function actualizarInterfazPedido() {
+            const lista = document.getElementById('lista-pedido');
+            lista.innerHTML = "";
+
+            if (pedidoActual.length === 0) {
+                lista.innerHTML = '<li class="vacio">Sin bebidas agregadas</li>';
+                return;
+            }
+
+            pedidoActual.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${item.nombre}</span> <strong>x${item.cantidad}</strong>`;
+                lista.appendChild(li);
+            });
+        }
+
+        // CONTROLADOR DE COMANDO API EXTERNO
+        function mostrarQR() {
+            if (pedidoActual.length === 0) {
+                alert("El pedido está vacío. Agrega al menos una bebida primero.");
+                return;
+            }
+
+            // 1. Transformamos los datos recolectados abajo en una sola línea limpia
+            const datosPedido = pedidoActual.map(item => `${item.nombre} x${item.cantidad}`).join(', ');
+
+            // 2. Formamos la URL exacta llamando al servicio remoto y codificando la variable string
+            const urlApiSolicitada = `https://qrserver.com{encodeURIComponent(datosPedido)}`;
+            
+            // 3. Modificamos el atributo src para pintar la imagen devuelta por el servidor
+            document.getElementById('img-qr-api').src = urlApiSolicitada;
+            document.getElementById('pantalla-qr').style.display = 'flex';
+        }
+
+        function cerrarQR() {
+            pedidoActual = [];
+            productoElegido = "";
+            document.getElementById('cantidad-unidades').value = "1";
+            document.querySelectorAll('.btn-bebida').forEach(b => b.classList.remove('seleccionado'));
+            actualizarInterfazPedido();
+            document.getElementById('pantalla-qr').style.display = 'none';
+            document.getElementById('img-qr-api').src = ""; // Limpiar imagen vieja
+        }
+    </script>
+</body>
+</html>
